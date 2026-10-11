@@ -1,0 +1,41 @@
+name: INFOLAB CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: '**/package-lock.json'
+      - run: npm ci --prefix backend
+      - run: npm ci --prefix frontend
+      - run: npm run prisma:generate --prefix backend
+      - run: node --check backend/src/server.js
+      - run: npm run build --prefix frontend
+      - run: docker build -t infolab-api:ci ./backend
+      - run: docker build -t infolab-frontend:ci ./frontend
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy blue/green on production host
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            git pull --ff-only origin main
+            bash deploy/blue-green.sh

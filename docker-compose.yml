@@ -1,0 +1,36 @@
+services:
+  api-blue:
+    build: ./backend
+    image: infolab-api:blue
+    env_file: ./backend/.env
+    restart: unless-stopped
+    expose: ["4000"]
+    networks: [infolab]
+  api-green:
+    build: ./backend
+    image: infolab-api:green
+    env_file: ./backend/.env
+    restart: unless-stopped
+    expose: ["4000"]
+    networks: [infolab]
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+        VITE_SOCKET_URL: /
+    image: infolab-frontend:latest
+    restart: unless-stopped
+    expose: ["80"]
+    networks: [infolab]
+  edge:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports: ["80:80"]
+    volumes:
+      - ./deploy/nginx/active.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [frontend]
+    networks: [infolab]
+networks:
+  infolab:
+    driver: bridge

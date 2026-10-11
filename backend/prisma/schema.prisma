@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum PCStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum Severity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model User {
+  id         String      @id @default(cuid())
+  name       String
+  email      String      @unique
+  password   String
+  role       Role        @default(STAFF)
+  createdAt  DateTime    @default(now())
+  statusLogs StatusLog[]
+}
+
+model Lab {
+  id          String   @id @default(cuid())
+  name        String
+  location    String
+  capacity    Int
+  description String?
+  createdAt   DateTime @default(now())
+  pcs         PC[]
+}
+
+model PC {
+  id           String      @id @default(cuid())
+  name         String
+  ipAddress    String
+  macAddress   String
+  status       PCStatus    @default(OFFLINE)
+  lastSeen     DateTime?
+  notes        String?
+  password     String?
+  labId        String
+  manufacturer String?
+  model        String?
+  createdAt    DateTime    @default(now())
+  lab          Lab         @relation(fields: [labId], references: [id], onDelete: Cascade)
+  alerts       Alert[]
+  statusLogs   StatusLog[]
+
+  @@index([labId, status])
+}
+
+model Alert {
+  id        String   @id @default(cuid())
+  type      String
+  message   String
+  severity  Severity @default(INFO)
+  isRead    Boolean  @default(false)
+  pcId      String?
+  createdAt DateTime @default(now())
+  pc        PC?      @relation(fields: [pcId], references: [id], onDelete: Cascade)
+
+  @@index([isRead, createdAt])
+}
+
+model StatusLog {
+  id         String   @id @default(cuid())
+  pcId       String
+  oldStatus  PCStatus
+  newStatus  PCStatus
+  changedBy  String?
+  createdAt  DateTime @default(now())
+  pc         PC       @relation(fields: [pcId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [changedBy], references: [id], onDelete: SetNull)
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
